@@ -1,4 +1,8 @@
 #include "app-service.hpp"
+#include "utils/timer.hpp"
+#include <chrono>
+#include <qlogging.h>
+#include <qnumeric.h>
 #ifdef Q_OS_MACOS
 #include "services/app-service/macos/mac-app-database.hpp"
 #elif defined(Q_OS_WIN)
@@ -6,7 +10,7 @@
 #else
 #include "services/app-service/xdg/xdg-app-database.hpp"
 #endif
-#include "omni-database.hpp"
+#include "internal/db/omni-database.hpp"
 #include <QProcess>
 #include <filesystem>
 #include <qcontainerfwd.h>
@@ -34,6 +38,10 @@ std::unique_ptr<AbstractAppDatabase> AppService::createLocalProvider() {
 #else
   return std::make_unique<XdgAppDatabase>();
 #endif
+}
+
+std::unique_ptr<QProcess> AppService::shellProcess(const QString &code) const {
+  return m_provider->shellProcess(code);
 }
 
 std::shared_ptr<AbstractApplication> AppService::terminalEmulator() const {
@@ -79,6 +87,7 @@ std::shared_ptr<AbstractApplication> AppService::textEditor() const {
 }
 
 std::shared_ptr<AbstractApplication> AppService::webBrowser() const { return m_provider->webBrowser(); }
+bool AppService::setWebBrowser(const AbstractApplication &app) { return m_provider->setWebBrowser(app); }
 std::shared_ptr<AbstractApplication> AppService::fileBrowser() const { return m_provider->fileBrowser(); }
 
 std::vector<std::shared_ptr<AbstractApplication>> AppService::list(const AppListOptions &opts) const {
@@ -167,7 +176,11 @@ bool AppService::scanSync() {
 AppService::AppService(OmniDatabase &db) : m_db(db), m_provider(createLocalProvider()) {
   m_rescanDebounce->setSingleShot(true);
   m_rescanDebounce->setInterval(500);
-  connect(m_rescanDebounce, &QTimer::timeout, this, [this] { scanSync(); });
+  connect(m_rescanDebounce, &QTimer::timeout, this, [this] {
+    qInfo() << "Scanning apps again, following a directory change...";
+    auto elapsed = timer::time([&]() { scanSync(); });
+    qInfo() << "Done scanning apps, took" << elapsed.count() / 1e6 << "ms";
+  });
 
   reinstallWatches(m_provider->searchPaths());
   connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &AppService::handleDirectoryChanged);

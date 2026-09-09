@@ -8,7 +8,7 @@
 #include <qtmetamacros.h>
 #include "abstract-app-db.hpp"
 #include "common/types.hpp"
-#include "omni-database.hpp"
+#include "internal/db/omni-database.hpp"
 
 struct AppListOptions {
   bool sortAlphabetically = true;
@@ -41,6 +41,7 @@ public:
    */
   bool launch(const AbstractApplication &app, const std::vector<QString> &args = {}) const;
 
+  std::unique_ptr<QProcess> shellProcess(const QString &code) const;
   bool launchTerminalCommand(const std::vector<QString> &cmdLine,
                              const LaunchTerminalCommandOptions &opts = {});
 
@@ -56,6 +57,7 @@ public:
   std::shared_ptr<AbstractApplication> terminalEmulator() const;
   std::shared_ptr<AbstractApplication> textEditor() const;
   std::shared_ptr<AbstractApplication> webBrowser() const;
+  bool setWebBrowser(const AbstractApplication &app);
   std::shared_ptr<AbstractApplication> fileBrowser() const;
 
   std::shared_ptr<AbstractApplication> findById(const QString &id) const;
